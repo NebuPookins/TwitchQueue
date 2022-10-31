@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Twitch Queue</title>
+	<style type="text/css">
+		html {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			overflow: hidden;
+		}
+		body {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			overflow: hidden;
+			background-color: rgba(0, 0, 0, 0);
+			font-size: 24px;
+		}
+		.twitch-queue {
+			border: solid 1px black;
+			background-color: violet;
+		}
+		.current-player {
+			text-align: center;
+			border: solid 2px black;
+		}
+		.commands {
+			text-align: center;
+			border: solid 2px black;
+		}
+	</style>
+</head>
+<body>
+<div id="main">
+</div>
+<script src="https://github.com/tmijs/tmi.js/releases/download/v1.4.5/tmi.min.js" ></script>
+<script crossoriginsrc="https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/index.min.js" integrity="sha512-qoCTmFwBtCPvFhA+WAqatSOrghwpDhFHxwAGh+cppWonXbHA09nG1z5zi4/NGnp8dUhXiVrzA6EnKgJA+fyrpw=="></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js" integrity="sha512-8Q6Y9XnTbOE+JNvjBQwJ2H8S+UV4uA6hiRykhdtIyDYZ2TprdNmWOUaKdGzOhyr4dCyk287OejbPvwl7lrfqrQ=="></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" integrity="sha512-MOCpqoRoisCTwJ8vQQiciZv0qcpROCidek3GTFS6KTk2+y7munJIlKCVkFCYY+p3ErYFXCjmFjnfTTRSC1OHWQ=="></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js" integrity="sha512-qoCTmFwBtCPvFhA+WAqatSOrghwpDhFHxwAGh+cppWonXbHA09nG1z5zi4/NGnp8dUhXiVrzA6EnKgJA+fyrpw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script type="text/javascript">
+(() => {
+	'use strict';
+	const defaultConfig = {
+		twitchChannel: 'nebupookins',
+		command: '!rp',
+		turnLengthInSeconds: 300,
+	};
+	const hashConfig = window.location.search.substring(1)
+	console.log("window hash:", hashConfig);
+	const configFromUrl = JSON.parse(LZString.decompressFromBase64(hashConfig));
+	console.log("Config from URL:", configFromUrl);
+	let config = Object.assign(defaultConfig, configFromUrl);
+	console.log("Final config:", config);
+
+	const root = ReactDOM.createRoot(document.getElementById('main'));
+	function PlayerName(props) {
+		return React.createElement('div', {
+				className: 'player-name'
+			}, props.name);
+	}
+
+	function Countdown(props) {
+		const msRemaining = props.deadline - props.time;
+		const secondsRemaining = Math.floor(msRemaining / 1000);
+		const secondsRemaingText = secondsRemaining < 0 ? "DONE" : `${secondsRemaining}`;
+		return React.createElement('div', {
+				className: 'countdown'
+			}, "Time remaining: ", secondsRemaingText);
+	}
+
+	function CurrentPlayer(props) {
+		const curPlayer = props.queue.list[0];
+		if (curPlayer) {
+			return React.createElement('div', {
+				className: 'current-player'
+			}, PlayerName({name: curPlayer}), Countdown({
+				deadline: props.queue.deadline,
+				time: props.time
+			}));
+		} else {
+			return React.createElement('div', {
+				className: 'current-player'
+			}, 'Waiting for players!');
+		}
+	}
+
+	function NextPlayers(props) {
+		const nextPlayers = props.list.slice(1);
+		return React.createElement('div', {
+			className: 'next-players'
+		}, nextPlayers.map(p => PlayerName({name: p})));
+	}
+
+	function JoinCommands(props) {
+		return React.createElement('div', {
+			className: 'commands'
+		}, `Join the queue with command ${props.command}`);
+	}
+
+	function TwitchQueue(props) {
+		return React.createElement('div', {
+			className: 'twitch-queue'
+		}, CurrentPlayer(props), 'Next up:', NextPlayers(props.queue), JoinCommands(props));
+	}
+
+	let queue = {
+		deadline: 0,
+		list: [
+			//"nebupookins",
+			//"marley",
+			//"steph",
+		]
+	};
+	var client = new tmi.client({
+		channels: [config.twitchChannel]
+	});
+	client.on('connected', function() {
+		console.log("Twitch chat connected.");
+	});
+	const commandUppercase = config.command.toUpperCase();
+	client.on('message', function(target, context, msg, self) {
+		if (self) { return; } //ignore messages from bot
+		const msgUppercase = msg.toUpperCase();
+		const isBroadcaster = context.badges.broadcaster == '1';
+		const isModerator = context.mod;
+		const displayName = context['display-name'];
+		console.log("Got message", displayName, msg, context);
+		if (msgUppercase.startsWith(commandUppercase)) {
+			if (isBroadcaster || isModerator) {
+				//process subcommands
+				const subcommand = msgUppercase.substring(commandUppercase.length).trim();
+				if (subcommand.startsWith('SKIP')) {
+					queue.deadline = 0;
+					console.log("Skipping current player's turn")
+					return;
+				} else if (subcommand.startsWith('ADD')) {
+					const param = parseInt(subcommand.substring(3).trim(), 10);
+					queue.deadline += param * 1000;
+					console.log("Adding", param, "seconds to the current turn.")
+					return;
+				}
+				console.log("Receive subcommand", subcommand);
+			} 
+			//else if we got here, it's just a request to join
+			if (!queue.list.includes(displayName)) {
+				if (queue.list[0]) {
+					queue.list.push(displayName);
+				} else {
+					queue.list.push(displayName);
+					queue.deadline = Date.now() + config.turnLengthInSeconds * 1000;
+				}
+			} else {
+				console.log(`Ignoring duplicate join for ${displayName}`)
+			}
+		}
+		//TODO
+	});
+	client.connect();
+	function renderFrame(timestampMs) {
+		const now = Date.now();
+		if (queue.deadline < now) {
+			queue.list = queue.list.slice(1);
+			queue.deadline = now + config.turnLengthInSeconds * 1000;
+		}
+		root.render(TwitchQueue({
+			queue: queue,
+			time: now,
+			command: config.command,
+		}));
+		window.requestAnimationFrame(renderFrame);
+	}
+	window.requestAnimationFrame(renderFrame);
+})();
+</script>
+</body>
+</html>
