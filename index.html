@@ -124,11 +124,11 @@
 	const commandUppercase = config.command.toUpperCase();
 	client.on('message', function(target, context, msg, self) {
 		if (self) { return; } //ignore messages from bot
-		const msgUppercase = msg.toUpperCase();
-		const isBroadcaster = context.badges.broadcaster == '1';
-		const isModerator = context.mod;
 		const displayName = context['display-name'];
 		console.log("Got message", displayName, msg, context);
+		const msgUppercase = msg.toUpperCase();
+		const isBroadcaster = context.badges && context.badges.broadcaster == '1';
+		const isModerator = context.mod;
 		if (msgUppercase.startsWith(commandUppercase)) {
 			if (isBroadcaster || isModerator) {
 				//process subcommands
