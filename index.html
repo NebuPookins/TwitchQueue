@@ -21,16 +21,27 @@
 			font-size: 24px;
 		}
 		.twitch-queue {
-			border: solid 1px black;
-			background-color: violet;
+			margin-right: 15px;
+			filter:  drop-shadow(15px 15px 4px hsla(300,35%,35%,0.5));
+		}
+		.current-player, .next-players, .commands {
+			border: solid 2px black;
+			background: hsl(300,76%,72%);
+			background: linear-gradient(90deg, hsl(300,76%,45%) 0%, hsl(300,80%,72%) 50%, hsl(300,76%,35%) 100%);
 		}
 		.current-player {
 			text-align: center;
-			border: solid 2px black;
+			border-radius: 1em 1em 0 0;
+		}
+		.next-players {
+			padding-left: 1em;
+		}
+		.next-players .player-name {
+			padding-left: 1em;
 		}
 		.commands {
 			text-align: center;
-			border: solid 2px black;
+			border-radius: 0 0 1em 1em;
 		}
 	</style>
 </head>
@@ -92,7 +103,7 @@
 		const nextPlayers = props.list.slice(1);
 		return React.createElement('div', {
 			className: 'next-players'
-		}, nextPlayers.map(p => PlayerName({name: p})));
+		}, "Next up:", nextPlayers.map(p => PlayerName({name: p})));
 	}
 
 	function JoinCommands(props) {
@@ -104,7 +115,7 @@
 	function TwitchQueue(props) {
 		return React.createElement('div', {
 			className: 'twitch-queue'
-		}, CurrentPlayer(props), 'Next up:', NextPlayers(props.queue), JoinCommands(props));
+		}, CurrentPlayer(props), NextPlayers(props.queue), JoinCommands(props));
 	}
 
 	let queue = {
